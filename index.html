@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>RAGE PARKOUR · 30 LEVELS</title>
+<!-- CrazyGames SDK v3 — MUST load before game code -->
+<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0a12;font-family:'Trebuchet MS',Arial,sans-serif;}
+#wrap{position:fixed;inset:0;}
+canvas{display:block;width:100%;height:100%;touch-action:none;background:#12121e;}
+#rotate{position:fixed;inset:0;background:#0a0a12;color:#fff;display:none;align-items:center;justify-content:center;flex-direction:column;z-index:50;text-align:center;}
+#rotate .ic{font-size:60px;animation:spin 2s infinite ease-in-out;}
+@keyframes spin{0%,40%{transform:rotate(0)}60%,100%{transform:rotate(90deg)}}
+#touch{position:fixed;inset:0;z-index:20;display:none;pointer-events:none;}
+.btn{position:absolute;pointer-events:auto;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.25);border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:bold;}
+.btn:active{background:rgba(255,255,255,.25);}
+#bLeft{left:20px;bottom:30px;width:70px;height:70px;}
+#bRight{left:110px;bottom:30px;width:70px;height:70px;}
+#bJump{right:20px;bottom:40px;width:80px;height:80px;}
+#bDash{right:115px;bottom:90px;width:70px;height:70px;}
+
+/* ===================== LEVEL SELECT OVERLAY ===================== */
+#ls-overlay{
+  position:fixed;inset:0;z-index:30;
+  display:none;flex-direction:column;
+  background:linear-gradient(160deg,#0d1628 0%,#060c18 100%);
+  overflow:hidden;
+}
+#ls-overlay.visible{display:flex;}
+
+/* animated starfield bg */
+#ls-overlay::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    radial-gradient(1px 1px at 15% 20%,rgba(255,255,255,.25) 0%,transparent 100%),
+    radial-gradient(1px 1px at 40% 55%,rgba(255,255,255,.18) 0%,transparent 100%),
+    radial-gradient(1px 1px at 70% 30%,rgba(255,255,255,.22) 0%,transparent 100%),
+    radial-gradient(1px 1px at 85% 75%,rgba(255,255,255,.15) 0%,transparent 100%),
+    radial-gradient(1px 1px at 55% 85%,rgba(255,255,255,.20) 0%,transparent 100%),
+    radial-gradient(1px 1px at 25% 65%,rgba(255,255,255,.12) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 90% 10%,rgba(120,180,255,.35) 0%,transparent 100%),
+    radial-gradient(1.5px 1.5px at 5% 90%,rgba(120,180,255,.28) 0%,transparent 100%);
+  pointer-events:none;
+}
+
+/* ---- Fixed header ---- */
+#ls-header{
+  flex:0 0 auto;
+  padding:18px 20px 0;
+  position:relative;
+  z-index:2;
+}
+#ls-title{
+  text-align:center;
+  font-size:clamp(20px,4vw,34px);
+  font-weight:bold;
+  color:#fff;
+  letter-spacing:.06em;
+  text-shadow:0 0 30px rgba(80,160,255,.5);
+  margin-bottom:6px;
+}
+#ls-subtitle{
+  text-align:center;
+  font-size:clamp(10px,1.8vw,13px);
+  color:rgba(140,180,255,.65);
+  margin-bottom:12px;
+  letter-spacing:.04em;
+}
+/* top fade mask */
+#ls-header::after{
+  content:'';position:absolute;bottom:-20px;left:0;right:0;height:20px;
+  background:linear-gradient(to bottom,#060c18,transparent);
+  pointer-events:none;z-index:3;
+}
+
+/* ---- Scrollable grid area ---- */
+#ls-scroll{
+  flex:1 1 auto;
+  overflow-y:scroll;
+  overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  padding:16px 16px 8px;
+  position:relative;
+  /* hide scrollbar on webkit but keep functionality */
+  scrollbar-width:thin;
+  scrollbar-color:rgba(100,160,255,.35) transparent;
+}
+#ls-scroll::-webkit-scrollbar{width:4px;}
+#ls-scroll::-webkit-scrollbar-track{background:transparent;}
+#ls-scroll::-webkit-scrollbar-thumb{background:rgba(100,160,255,.35);border-radius:2px;}
+
+#ls-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(clamp(78px,16vw,130px),1fr));
+  gap:clamp(8px,1.5vw,16px);
+  padding-bottom:8px;
+}
+#ls-scroll{cursor:grab;}
+#ls-scroll.dragging{cursor:grabbing;}
+#ls-scroll{scroll-behavior:smooth;}
+.ls-card.soon{opacity:.5;}
+.ls-card.soon .ls-badge{color:rgba(255,200,80,.7);background:rgba(255,180,60,.12);}
+
+/* ---- Level cards ---- */
+.ls-card{
+  aspect-ratio:1/1;
+  border-radius:12px;
+  border:2px solid transparent;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  gap:4px;
+  cursor:pointer;
+  position:relative;
+  overflow:hidden;
+  transition:transform .12s ease, box-shadow .12s ease;
+  -webkit-tap-highlight-color:transparent;
+  will-change:transform;
+}
+.ls-card:active{transform:scale(.93);}
+
+/* locked */
+.ls-card.locked{
+  background:rgba(20,22,34,.8);
+  border-color:rgba(60,65,90,.5);
+  cursor:default;
+}
+/* unlocked / in-progress */
+.ls-card.unlocked{
+  background:linear-gradient(145deg,rgba(25,50,110,.85),rgba(15,30,70,.95));
+  border-color:rgba(80,140,255,.55);
+  box-shadow:0 0 12px rgba(60,120,255,.15),inset 0 1px 0 rgba(255,255,255,.08);
+}
+.ls-card.unlocked:active{
+  box-shadow:0 0 20px rgba(60,160,255,.4);
+}
+/* cleared */
+.ls-card.cleared{
+  background:linear-gradient(145deg,rgba(15,60,35,.9),rgba(10,40,25,.95));
+  border-color:rgba(60,220,120,.6);
+  box-shadow:0 0 14px rgba(40,200,100,.15),inset 0 1px 0 rgba(255,255,255,.08);
+}
+.ls-card.cleared:active{
+  box-shadow:0 0 22px rgba(60,220,120,.45);
+}
+/* current level highlight */
+.ls-card.current{
+  border-color:#ffdd55!important;
+  box-shadow:0 0 18px rgba(255,210,60,.35)!important;
+}
+.ls-card.current::after{
+  content:'▶ CURRENT';
+  position:absolute;top:0;left:0;right:0;
+  background:rgba(255,210,60,.18);
+  font-size:8px;letter-spacing:.08em;
+  color:#ffdd55;text-align:center;
+  padding:3px 0;font-weight:bold;
+}
+
+/* shimmer on cleared cards */
+.ls-card.cleared::before{
+  content:'';
+  position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 40%,rgba(60,220,120,.07) 50%,transparent 60%);
+  animation:ls-shimmer 3s infinite;
+}
+@keyframes ls-shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+
+.ls-num{
+  font-size:clamp(18px,3.5vw,30px);
+  font-weight:bold;
+  line-height:1;
+}
+.ls-card.locked .ls-num{color:#444;font-size:clamp(16px,3vw,26px);}
+.ls-card.unlocked .ls-num{color:#c8dcff;}
+.ls-card.cleared .ls-num{color:#7effc0;}
+
+.ls-name{
+  font-size:clamp(7px,1.2vw,10px);
+  opacity:.75;letter-spacing:.03em;
+  text-align:center;padding:0 4px;
+  line-height:1.2;
+  max-width:100%;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;
+}
+.ls-card.locked .ls-name{color:#333;}
+.ls-card.unlocked .ls-name{color:rgba(180,210,255,.8);}
+.ls-card.cleared .ls-name{color:rgba(140,255,190,.8);}
+
+.ls-badge{
+  font-size:clamp(7px,1.1vw,9px);
+  font-weight:bold;letter-spacing:.04em;
+  border-radius:10px;padding:2px 6px;
+}
+.ls-card.locked .ls-badge{color:#333;}
+.ls-card.unlocked .ls-badge{color:rgba(120,180,255,.7);}
+.ls-card.cleared .ls-badge{color:#4dcc88;background:rgba(40,180,100,.15);}
+
+.ls-lock-icon{font-size:clamp(18px,3vw,26px);opacity:.3;}
+
+/* ---- Bottom fade + footer ---- */
+#ls-footer{
+  flex:0 0 auto;
+  padding:10px 20px 16px;
+  position:relative;
+  z-index:2;
+}
+#ls-footer::before{
+  content:'';position:absolute;top:-20px;left:0;right:0;height:20px;
+  background:linear-gradient(to top,#060c18,transparent);
+  pointer-events:none;
+}
+#ls-back{
+  display:block;width:100%;max-width:220px;
+  margin:0 auto;
+  padding:13px 0;
+  border:2px solid rgba(255,255,255,.25);
+  border-radius:10px;
+  background:rgba(255,255,255,.06);
+  color:#fff;
+  font-family:'Trebuchet MS',Arial,sans-serif;
+  font-size:clamp(14px,2.5vw,20px);
+  font-weight:bold;
+  letter-spacing:.05em;
+  cursor:pointer;
+  transition:background .15s, border-color .15s, transform .1s;
+  -webkit-tap-highlight-color:transparent;
+}
+#ls-back:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.45);}
+#ls-back:active{transform:scale(.96);}
+/* ===== CRAZYGAMES ADDITIONS ===== */
+/* Banner ad container */
+#cg-banner{
+  position:fixed;bottom:0;left:0;right:0;
+  height:90px;z-index:100;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,0.6);pointer-events:none;
+}
+#cg-banner.visible{display:flex;}
+#cg-banner-inner{width:728px;max-width:100%;height:90px;}
+
+/* Full-screen ad overlay */
+#ad-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:#000;
+  display:none;align-items:center;justify-content:center;
+  flex-direction:column;
+}
+#ad-overlay.visible{display:flex;}
+#ad-overlay p{color:#fff;font-family:'Trebuchet MS',Arial,sans-serif;font-size:18px;opacity:.8;margin-top:12px;}
+
+/* User profile HUD */
+#cg-user{
+  position:fixed;top:8px;right:10px;z-index:50;
+  display:none;align-items:center;gap:8px;
+  background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,.18);
+  border-radius:20px;padding:4px 10px 4px 4px;
+  pointer-events:none;
+}
+#cg-user.visible{display:flex;}
+#cg-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;}
+#cg-username{color:#fff;font-family:'Trebuchet MS',Arial,sans-serif;font-size:12px;font-weight:bold;}
+
+/* Loading screen */
+#cg-loading{
+  position:fixed;inset:0;z-index:300;
+  background:#0a0a12;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  transition:opacity .5s;
+}
+#cg-loading.hidden{opacity:0;pointer-events:none;}
+#cg-loading-bar-wrap{width:260px;height:8px;background:rgba(255,255,255,.12);border-radius:4px;margin-top:18px;}
+#cg-loading-bar{height:100%;background:#55ddff;border-radius:4px;width:0%;transition:width .3s;}
+#cg-loading-title{color:#fff;font-family:'Trebuchet MS',Arial,sans-serif;font-size:28px;font-weight:bold;letter-spacing:.06em;}
+#cg-loading-sub{color:rgba(140,200,255,.7);font-family:'Trebuchet MS',Arial,sans-serif;font-size:13px;margin-top:6px;}
+</style>
+</head>
+<body>
+<!-- Loading screen (shown until SDK+game ready) -->
+<div id="cg-loading">
+  <div id="cg-loading-title">RAGE PARKOUR</div>
+  <div id="cg-loading-sub">30 LEVELS · 3 CHAPTERS</div>
+  <div id="cg-loading-bar-wrap"><div id="cg-loading-bar"></div></div>
+</div>
+
+<!-- Ad overlay shown during midgame / rewarded ads -->
+<div id="ad-overlay">
+  <p>Ad playing...</p>
+</div>
+
+<!-- User profile (shown when logged in on CrazyGames) -->
+<div id="cg-user">
+  <img id="cg-avatar" src="" alt="">
+  <span id="cg-username"></span>
+</div>
+
+<!-- Banner ad slot (bottom) -->
+<div id="cg-banner"><div id="cg-banner-inner"></div></div>
+
+<div id="wrap"><canvas id="cv"></canvas></div>
+<div id="touch">
+<div class="btn" id="bLeft">◀</div>
+<div class="btn" id="bRight">▶</div>
+<div class="btn" id="bDash">DASH</div>
+<div class="btn" id="bJump">JUMP</div>
+</div>
+<div id="rotate"><div class="ic">📱</div><h2 style="margin-top:20px">Please Rotate Your Device</h2><p style="margin-top:8px;opacity:.7">RAGE PARKOUR plays in landscape</p></div>
+<div id="ls-overlay">
+  <div id="ls-header">
+    <div id="ls-title">SELECT LEVEL</div>
+    <div id="ls-subtitle">0 / 0 LEVELS CLEARED</div>
+  </div>
+  <div id="ls-scroll">
+    <div id="ls-grid"></div>
+  </div>
+  <div id="ls-footer">
+    <button id="ls-back" type="button">BACK</button>
+  </div>
+</div>
+
+<!-- =====================================================
+     MODULE LOAD ORDER MATTERS — these are plain (non-module)
+     scripts sharing one global scope, loaded in dependency order:
+     data/config → low-level systems → liveops/analytics/i18n → engine → bootstrap
+     ===================================================== -->
+<script src="js/data/skins.js"></script>
+<script src="js/data/achievements.js"></script>
+<script src="js/data/levels.js"></script>
+<script src="config/liveops-config.js"></script>
+
+<script src="js/sdk.js"></script>
+<script src="js/analytics.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/asset-manager.js"></script>
+<script src="js/save.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/input.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/liveops.js"></script>
+
+<script src="js/engine.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
